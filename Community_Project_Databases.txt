@@ -1,0 +1,403 @@
+CREATE TABLE Library(
+    library_name VARCHAR(40) NOT NULL,
+    library_address VARCHAR(160) NOT NULL,
+    CONSTRAINT library_pk PRIMARY KEY (library_name,library_address)
+);
+
+create table CatalogEntries(
+    isbn varchar(40) not null,
+    title varchar(40) not null,
+    genre varchar(40) not null,
+    description varchar(640) not null,
+    publication_year int not null,
+    constraint catalog_entries_pk primary key (isbn)
+);
+
+create table Conditions(
+    condition_type varchar(40) not null,
+    constraint conditions_pk primary key (condition_type)
+);
+
+create table AvailableItems(
+    library_name varchar(40) not null,
+    library_address varchar (160) not null,
+    isbn varchar(40) not null,
+    copy_number int not null,
+    condition_of_item varchar(40) not null,
+    constraint available_items_pk primary key (isbn, copy_number),
+    constraint available_items_fk_01 foreign key (library_name, library_address) references Library(library_name, library_address),
+    constraint available_items_fk_02 foreign key (isbn) references CatalogEntries(isbn),
+    constraint available_items_fk_03 foreign key (condition_of_item) references Conditions(condition_type)
+);
+
+create table Books(
+    isbn varchar(40) not null,
+    publisher varchar(40) not null,
+    page_amount int not null,
+    difficulty_level varchar(40) not null,
+    department_section varchar(40) not null,
+    constraint books_pk primary key (isbn),
+    constraint books_fk_01 foreign key (isbn) references CatalogEntries(isbn)
+);
+
+create table Movies(
+    movie_id varchar(40) not null,
+    constraint movies_pk primary key (movie_id),
+    constraint movies_fk_01 foreign key (movie_id) references CatalogEntries(isbn)
+);
+
+CREATE TABLE Schedule(
+    library_name VARCHAR(40) NOT NULL,
+    library_address VARCHAR(160) NOT NULL,
+    specific_day Varchar(40) NOT NULL,
+    time_of_day TIME NOT NULL,
+    CONSTRAINT schedule_fk FOREIGN KEY (library_name,library_address) REFERENCES Library(library_name,library_address),
+    CONSTRAINT schedule_pk PRIMARY KEY (library_name,specific_day,time_of_day)
+);
+
+
+
+CREATE TABLE Shift(
+    library_name VARCHAR(40) NOT NULL,
+    specific_day VARCHAR(40) NOT NULL,
+    time_of_day TIME NOT NULL,
+    employee_id VARCHAR(40) NOT NULL,
+    CONSTRAINT shift_pk PRIMARY KEY (library_name,specific_day,time_of_day),
+    CONSTRAINT shift_fk_01 FOREIGN KEY (library_name,specific_day,time_of_day) REFERENCES Schedule(library_name,specific_day,time_of_day)
+);
+
+CREATE TABLE Librarian (
+    employee_id VARCHAR(40) NOT NULL,
+    first_name VARCHAR(40) NOT NULL,
+    last_name VARCHAR(40) NOT NULL,
+    CONSTRAINT librarian_pk PRIMARY KEY (employee_id)
+);
+
+CREATE TABLE Shift_Assignment(
+    library_name VARCHAR(40) NOT NULL,
+    specific_day VARCHAR(40) NOT NULL,
+    time_of_day TIME NOT NULL,
+    employee_id VARCHAR(40) NOT NULL,
+    shift_assignment VARCHAR(40) NOT NULL,
+    CONSTRAINT shift_assignment_pk PRIMARY KEY (specific_day,time_of_day,employee_id),
+    CONSTRAINT shift_assignment_fk_01 FOREIGN KEY (library_name,specific_day,time_of_day) REFERENCES Shift(library_name,specific_day,time_of_day),
+    CONSTRAINT shift_assignment_fk_02 FOREIGN KEY (employee_id) REFERENCES Librarian(employee_id)
+);
+
+alter table Shift
+        ADD CONSTRAINT shift_fk_02 FOREIGN KEY (specific_day,time_of_day,employee_id) REFERENCES Shift_Assignment(specific_day,time_of_day,employee_id);
+
+CREATE TABLE Return_Box (
+    isbn varchar(40),
+    copy_number INT NOT NULL,
+    CONSTRAINT return_box_pk PRIMARY KEY (isbn,copy_number)
+);
+
+CREATE TABLE Check_Box (
+    employee_id VARCHAR(40) NOT NULL,
+    isbn varchar(40),
+    copy_number INT NOT NULL,
+    time_date_stamp VARCHAR(40) NOT NULL,
+    CONSTRAINT check_box_pk PRIMARY KEY (employee_id,isbn,copy_number,time_date_stamp),
+    CONSTRAINT return_box_fk_01 FOREIGN KEY (isbn,copy_number) REFERENCES Return_Box(isbn,copy_number),
+    CONSTRAINT return_box_fk_02 FOREIGN KEY (employee_id) REFERENCES librarian(employee_id)
+);
+
+
+CREATE TABLE Client(
+    library_name VARCHAR(40) NOT NULL,
+    library_address VARCHAR(160) NOT NULL,
+    client_id VARCHAR(10) NOT NULL,
+    client_fname VARCHAR(15) NOT NULL,
+    client_lname VARCHAR(15) NOT NULL,
+    phone_number VARCHAR(15) NOT NULL,
+    max_loaned VARCHAR(10),
+    debt DOUBLE,
+    CONSTRAINT client_fk FOREIGN KEY (library_name,library_address) REFERENCES Library(library_name,library_address),
+    CONSTRAINT client_pk PRIMARY KEY (client_id),
+    CONSTRAINT client_uk UNIQUE (client_fname,client_lname,phone_number)
+);
+
+CREATE TABLE Pay(
+    client_id VARCHAR(10) NOT NULL,
+    pay_amount DOUBLE NOT NULL,
+    date_payed DATE NOT NULL,
+    CONSTRAINT pay_fk FOREIGN KEY (client_id) REFERENCES Client(client_id),
+    CONSTRAINT pay_pk PRIMARY KEY (client_id,pay_amount,date_payed)
+);
+
+CREATE TABLE Loan(
+    filled_by VARCHAR(40) NOT NULL,
+    client_id VARCHAR(10) NOT NULL,
+    scanner_id VARCHAR(10) NOT NULL,
+    isbn VARCHAR(40) NOT NULL,
+    copy_number INT NOT NULL,
+    date_due DATE NOT NULL,
+    date_returned DATE,
+    time_date_stamp VARCHAR(30) NOT NULL,
+    CONSTRAINT loan_fk01 FOREIGN KEY (filled_by) REFERENCES Librarian(employee_id),
+    CONSTRAINT loan_fk02 FOREIGN KEY (client_id) REFERENCES Client(client_id),
+    CONSTRAINT loan_fk03 FOREIGN KEY (isbn,copy_number) REFERENCES AvailableItems(isbn,copy_number),
+    CONSTRAINT loan_pk PRIMARY KEY (scanner_id),
+    CONSTRAINT loan_uk UNIQUE (client_id, isbn, copy_number, date_due, date_returned)
+);
+
+CREATE TABLE Return_type(
+    client_id VARCHAR(10) NOT NULL,
+    pay_amount DOUBLE NOT NULL,
+    date_payed DATE NOT NULL,
+    scanner_id VARCHAR(10) NOT NULL,
+    debt_left DOUBLE NOT NULL,
+    CONSTRAINT return_fk01 FOREIGN KEY (client_id,pay_amount,date_payed) REFERENCES Pay(client_id, pay_amount, date_payed),
+    CONSTRAINT return_fk02 FOREIGN KEY (scanner_id) REFERENCES Loan(scanner_id),
+    CONSTRAINT return_pk PRIMARY KEY (client_id,pay_amount,date_payed,scanner_id)
+);
+
+-- views, triggers, and queries
+
+create view v_select_book_data as
+    select isbn, publisher, condition_of_item, page_amount, difficulty_level, department_section
+    from AvailableItems inner join Books using (isbn);
+
+create view v_bad_condition_loaned_or_available_items as
+    select isbn, condition_of_item
+    from Availableitems
+    where condition_of_item in('Bad Condition', 'Loaned Out', 'Available');
+
+
+#Can only loan books if they are less than 10 max_loaned on their account
+DELIMITER //
+create trigger loan_BEFORE_INSERT BEFORE INSERT ON
+loan FOR EACH ROW BEGIN
+   declare loanBook int;
+   select client_id into loanBook
+   from client
+   where client_id = new.client_id AND max_loaned >= 10;
+   if loanBook is not null then
+   signal sqlstate '45000'
+   set message_text = 'Client has less than 10';
+   end if;
+end;
+delimiter ;
+
+#Increment max_loaned whenever client loans a book
+DELIMITER //
+create trigger loan_AFTER_INSERT_INCREASE_MAX_LOAN AFTER INSERT ON
+loan FOR EACH ROW BEGIN
+   update client
+   set max_loaned = max_loaned + 1
+   where client_id = new.client_id;
+end;
+delimiter ;
+
+#Trigger to enforce that client does not have outstanding debts before loaning
+DELIMITER //
+create trigger CHECK_OUTSTANDING_DEBT before insert on loan
+for each row begin
+   declare loanBook int;
+   select client_id into loanBook
+   from client
+   where client_id = new.client_id AND debt != 0;
+   if loanBook is not null then
+       signal sqlstate '45000'
+       set message_text = 'Client has outstanding debts.
+       Please clear any debts before attempting to check out an item.';
+   end if;
+end;
+delimiter ;
+
+#Changes condition of item when a book is loaned out
+DELIMITER //
+CREATE TRIGGER change_condition_of_item AFTER INSERT ON Loan
+   FOR EACH ROW BEGIN
+   UPDATE AvailableItems
+       SET
+           condition_of_item = 'Loaned Out'
+       WHERE
+             isbn = NEW.isbn AND copy_number = NEW.copy_number;
+end //
+DELIMITER ;
+
+# before a loan, check to see if the loan type is "available" (In progress)
+
+DELIMITER //
+create trigger loan_BEFORE_INSERT_Available BEFORE INSERT ON
+loan FOR EACH ROW BEGIN
+   declare book varchar(40);
+   select isbn into book
+   from availableitems
+   where isbn = new.isbn AND copy_number = new.copy_number AND condition_of_item = 'Loaned Out';
+   if book is not null then
+   signal sqlstate '45000'
+   set message_text = 'The book is already loaned out';
+   end if;
+end;
+DELIMITER ;
+
+# Make sure a valid book is inserted into the return box
+
+DELIMITER //
+create trigger check_box_librarian_validBook BEFORE INSERT ON
+return_box FOR EACH ROW BEGIN
+   declare book varchar(40);
+   select isbn into book
+   from availableitems
+   where isbn = new.isbn AND copy_number = new.copy_number AND condition_of_item = 'Loaned Out';
+   if book is null then
+   signal sqlstate '45000'
+   set message_text = 'No such book exists';
+   end if;
+end;
+DELIMITER ;
+
+# If client returns a valid book and the librarian checks it, modify it to “available” (in progress)
+DELIMITER //
+create trigger check_box_librarian_available AFTER INSERT ON
+check_box FOR EACH ROW BEGIN
+   update availableitems
+    set condition_of_item = 'Available'
+   where isbn = new.isbn AND copy_number = new.copy_number;
+end;
+DELIMITER ;
+
+# If client pays money to remove debt, decrease debt by amount paid.
+
+DELIMITER //
+create trigger PAY_CLIENT_DEBT after insert on Pay
+for each row begin
+    declare debt_amount int;
+    select debt into debt_amount
+    from client
+    where client_id = new.client_id;
+    update client
+        set debt = debt - new.pay_amount
+    where client_id = new.client_id;
+end;
+DELIMITER ;
+
+drop trigger pay_client_debt;
+
+# return book and put date stamp on loan
+DELIMITER //
+create trigger check_box_date_returned after insert on check_box
+for each row begin
+   update loan
+    set date_returned = new.time_date_stamp
+   where isbn = new.isbn AND copy_number = new.copy_number;
+   delete from check_box
+   where isbn = new.isbn AND copy_number = new.copy_number;
+end;
+DELIMITER ;
+
+-- insert statements
+
+insert into Library(library_name, library_address)
+VALUES ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840');
+
+
+insert into CatalogEntries(isbn, title, genre, description, publication_year)
+values ('978-0-441-01359-3', 'Dune', 'Sci-Fi', 'Famous novel featuring a desert planet, political intrigue, and most importantly, giant sandworms.',
+        2005),
+        ('786936852318', 'Rogue One: A Star Wars Story', 'Sci-Fi', 'A direct prequel to Star Wars, reminding us of a time the movies were actually good.',
+        2017);
+
+insert into Books(isbn, publisher, page_amount, difficulty_level, department_section)
+values ('978-0-441-01359-3', 'Penguin Random House', 617, 'Challenging', 'Fiction');
+
+insert into Movies(movie_id)
+values ('786936852318');
+
+insert into Conditions(condition_type)
+values ('Available'),
+       ('Bad Condition'),
+       ('Loaned Out'),
+       ('Reserved');
+
+insert into Availableitems (library_name, library_address, isbn, copy_number, condition_of_item)
+values ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 1, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 2, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 3, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 4, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 5, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 6, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 7, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 8, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 9, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '978-0-441-01359-3', 10, 'Available'),
+       ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', '786936852318', 1, 'Loaned Out');
+
+insert into Client (library_name, library_address, client_id, client_fname, client_lname, phone_number, max_loaned, debt)
+values ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', 01, 'Tyler', 'VanLerberghe',
+        '555-555-5555', 0, 0.00);
+
+insert into Pay(client_id, pay_amount, date_payed)
+values (01, 19.99, STR_TO_DATE('01-01-2020', '%d-%m-%Y'));
+
+insert into Librarian(employee_id, first_name, last_name)
+values ('55555', 'Tyler', 'VanLerberghe');
+
+insert into Return_Box(isbn, copy_number)
+values ('978-0-441-01359-3', '1');
+
+insert into check_box(employee_id,isbn,copy_number,time_date_stamp)
+values ('55555', '978-0-441-01359-3', '1', STR_TO_DATE('25-12-2019', '%d-%m-%Y'));
+
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 06, '978-0-441-01359-3', 1, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+
+insert into Return_type(client_id, pay_amount, date_payed, scanner_id, debt_left)
+values (01, 19.99, STR_TO_DATE('01-01-2020', '%d-%m-%Y'), 06, 0.00);
+
+insert into Schedule(library_name, library_address, specific_day, time_of_day)
+values ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', 'Monday', TIME('6:00'));
+
+
+select * from v_select_book_data;
+
+# Clientele can only loan books if they have less than 10 max_loaned on their account.
+
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 07, '978-0-441-01359-3', 2, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 08, '978-0-441-01359-3', 3, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 09, '978-0-441-01359-3', 4, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 10, '978-0-441-01359-3', 5, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 11, '978-0-441-01359-3', 6, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 12, '978-0-441-01359-3', 7, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 13, '978-0-441-01359-3', 8, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+values ('55555', 01, 14, '978-0-441-01359-3', 9, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+        '25-12-2019 14:00');
+# insert into Loan(filled_by, client_id, scanner_id, isbn, copy_number, date_due, date_returned, time_date_stamp)
+# values ('55555', 01, 15, '978-0-441-01359-3', 10, STR_TO_DATE('5-12-2019', '%d-%m-%Y'), STR_TO_DATE('25-12-2019', '%d-%m-%Y'),
+#         '25-12-2019 14:00');
+
+insert into client (library_name, library_address, client_id, client_fname, client_lname, phone_number, max_loaned, debt)
+values ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', 02, 'Yoosuf', 'Batliwala',
+        '222-222-2222', 10, 19.99);
+
+insert into client (library_name, library_address, client_id, client_fname, client_lname, phone_number, max_loaned, debt)
+values ('CSULB University Library', '1250 N Bellflower Blvd, Long Beach, CA, 90840', 03, 'Yoosufe', 'Batliwalae',
+        '222-222-2223', 10, 19.99);
+
+insert into pay(client_id, pay_amount, date_payed)
+values (03, 19.99, STR_TO_DATE('01-01-2020', '%d-%m-%Y'));
+
+select max_loaned
+from client
+
+
+
